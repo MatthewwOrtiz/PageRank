@@ -1,62 +1,53 @@
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.*;
-import java.util.HashSet;
-import java.util.regex.Pattern;
+import java.util.*;
+import java.util.LinkedList;
 import org.jsoup.Connection;
-import org.jsoup.Connection.Response;
-
-/**
- *
- * @author mwono
- */
 
 public class driver {
     /**
      * @param args the command line arguments
      */
-	static boolean printRepos = false;
-	static boolean printComments = false;
-	
-	
-	
-	
+    static boolean printRepos = false;
+    static HashMap<String, page> inOut;
+    static LinkedList<page> ranks;
+    
     public static void main(String[] args) {
+        inOut = new HashMap<>();
+        ranks = new LinkedList<>();
         String url = "https://gameofthrones.fandom.com/wiki/Game_of_Thrones_(TV_series)";
-        HashSet<String> visited = new HashSet<>();
-        crawl(url, visited);
+        crawl(url);
+        initRanks();
     }
     
-    private static void crawl(String url, HashSet<String> visited) {
+    private static void crawl(String url) {
         try {
-            String page = url.replace("https://gameofthrones.fandom.com/wiki/", "");
-            if (visited.contains(page)) {
-                return;
-            } else {
-                visited.add(page);
-            }
             if (!url.contains("https://gameofthrones.fandom.com/wiki/")) {
                 String temp = "https://gameofthrones.fandom.com".concat(url);
                 url = temp;
             }
-            Connection con = Jsoup.connect(url);
-            
-            Document doc = con.get();
-            String fileName = url.substring(8).replace('/', '_').replaceAll("[?&]", "");
-            if(fileName.length() < 2) {
-                    fileName = "GoTWiki";
+            if (inOut.containsKey(url)) {
+                inOut.get(url).inlinks++;
+                return;
+            } else {
+                inOut.put(url, new page(url));
             }
-            
+            Connection con = Jsoup.connect(url);            
+            Document doc = con.get();
+
             System.out.println(url);
           
             if(printRepos) {
-            new File("repository").mkdir();
+                String fileName = url.substring(8).replace('/', '_').replaceAll("[?&]", "");
+                if(fileName.length() < 2) {
+                    fileName = "GoTWiki";
+                }
+                new File("repository").mkdir();
                 PrintWriter pw = new PrintWriter("repository/" + fileName + ".html");
 
                 pw.print(doc);
@@ -72,16 +63,55 @@ public class driver {
                     if(urlHref.contains("/wiki/") 
                             && !urlHref.contains("?") 
                             && !urlHref.substring(6).contains(":")
-                            && !urlHref.contains("wikipedia")) {
-                        crawl(urlHref, visited);
+                            && !urlHref.contains("wikipedia")
+                            && !urlHref.contains("wikia")) {
+                        
+                        inOut.get(url).outlinks++;
+                        if (!inOut.get(url).linksTo.containsKey(urlHref)) {
+                            inOut.get(url).linksTo.put(urlHref, 1);
+                        } else {
+                            int l = inOut.get(url).linksTo.get(urlHref);
+                            inOut.get(url).linksTo.replace(urlHref, l, l + 1);
+                        }
+                        
+                        crawl(urlHref);
                     }
                 }
             }
         } catch (MalformedURLException e) {
-            System.out.println("Bad URL: " + e.getMessage());
+            System.out.println("Bad URL: " + e.getMessage() + " " + url);
         } catch (IOException e) {
-            System.out.println("Unable to Create Connection " + e.getMessage());
+            System.out.println("Unable to Create Connection " + e.getMessage() + " " + url);
+        } catch (StackOverflowError e) {
+            System.out.println("Stack Overflow");
         }
     }
     
+    private static void initRanks() {
+        int s = inOut.size();
+        Iterator it = inOut.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry pair = (Map.Entry)it.next();
+            page p = (page) pair.getValue();
+            if (p.outlinks != 0) {
+                p.pageRank = 1 / s;
+                ranks.add(p);
+            } else {
+                it.remove();
+            }
+        }
+    }
+
+    private static class page {
+        String name;
+        int inlinks, outlinks;//number of inlinks and outlinks
+        float pageRank;//Current pageRank for a given Page
+        HashMap<String, Integer> linksTo;//What pages the current page links to and how many times
+
+        public page(String s) {
+            name = s;
+            inlinks = 1;
+            linksTo = new HashMap<>();
+        }
+    }
 }
