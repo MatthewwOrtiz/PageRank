@@ -27,17 +27,15 @@ public class driver {
     
     private static void crawl(String url, String from) {
         try {
-//        	System.out.print('.');
-//        	System.out.println(inOut.size());
-        	if (inOut.size() == 50) {
-        		return;
-        	}
+            if (inOut.size() == 2250) {
+                return;
+            }
             if (!url.contains("https://gameofthrones.fandom.com/wiki/")) {
                 String temp = "https://gameofthrones.fandom.com".concat(url);
                 url = temp;
             }
             if (inOut.containsKey(url)) {
-                inOut.get(url).inlinks++;
+//                inOut.get(url).inlinks++;
                 inOut.get(url).linkedFrom.add(from);
                 return;
             } else {
@@ -64,24 +62,18 @@ public class driver {
             
             String urlHref;
             for (int i = 0; i < links.size(); i++) {
-//            	System.out.println("Help me");
                 if (links.get(i) != null) {
                     urlHref = links.get(i).attr("href");
                     if(urlHref.contains("/wiki/") 
                             && !urlHref.contains("?") 
                             && !urlHref.substring(6).contains(":")
                             && !urlHref.contains("wikipedia")
-                            && !urlHref.contains("wikia")) {
+                            && !urlHref.contains("wikia")
+                            && !urlHref.contains("wiktionary")
+                            && !urlHref.contains("fandom")
+                            && !urlHref.contains("House_Martel")) {
                         
                         inOut.get(url).outlinks++;
-                        if (!inOut.get(url).linksTo.containsKey(urlHref)) {
-                        	//System.out.println(urlHref);
-                            inOut.get(url).linksTo.put(urlHref, 1);
-                        } else {
-                            int l = inOut.get(url).linksTo.get(urlHref);
-                            inOut.get(url).linksTo.replace(urlHref, l, l + 1);
-                        }
-                        
                         
                         crawl(urlHref, url);
                     }
@@ -89,8 +81,10 @@ public class driver {
             }
         } catch (MalformedURLException e) {
             System.out.println("Bad URL: " + e.getMessage() + " " + url);
+//            inOut.remove(url);
         } catch (IOException e) {
             System.out.println("Unable to Create Connection " + e.getMessage() + " " + url);
+//            inOut.remove(url);
         } catch (StackOverflowError e) {
             System.out.println("Stack Overflow");
         }
@@ -108,17 +102,17 @@ public class driver {
             if (p.outlinks != 0) {
                 p.pageRank = (double) 1 / s;
                 ranks[ind] = p;
+                ind++;
             } else {
                 it.remove();
             }
-            ind++;
-//            System.out.println(p.name + " " + p.inlinks + " " + p.outlinks + " " + p.index);
-//            System.out.print("init pageRank ");
-//            System.out.println(1.0/s); // initial page rank
         }
-//        ranksOld = Arrays.copyOf(ranks, s);
-        for (int i = 0; i < s; i++) {
-        	ranksOld[i] = ranks[i].pageRank;
+        for (int i = 0; i < s-1; i++) {
+            if (ranks[i] != null) {
+                ranksOld[i] = ranks[i].pageRank;
+            } else {
+                System.out.println(i);
+            }
         }
         
         boolean loop = true;
@@ -126,74 +120,69 @@ public class driver {
 
         System.out.println();
         while (loop) {
-//        	System.out.println("I mean it");
-//        	System.out.print('.');
-        	int ctr = 0;
-        	iters++;
-	        for (int i = 0; i < s-1; i++) {
+            int ctr = 0;
+            iters++;
+            for (int i = 0; i < s-1; i++) {
+                if (ranks[i] != null) {
 //	        	System.out.print(ranks[i].pageRank + " ");
-	        	ranks[i].pageRank = 0;
+                    ranks[i].pageRank = 0;
 	            for (int j = 0; j < s-1; j++) {
-	            	if (i != j && ranks[i].linkedFrom.contains(ranks[j].name)) {
-	            		ranks[i].pageRank += ranks[j].pageRank / ranks[j].outlinks;
+	            	if (i != j && ranks[j] != null && ranks[i].linkedFrom.contains(ranks[j].name)) {
+                            ranks[i].pageRank += ranks[j].pageRank / ranks[j].outlinks;
 	            
-//	            		System.out.println(ranks[j].pageRank + " " + ranks[j].outlinks);
+//                          System.out.println(ranks[j].pageRank + " " + ranks[j].outlinks);
 	            	}
 	            	
 	            }
+                }
 //	            System.out.println(ranks[i].pageRank);
-	        }
+            }
 //	        System.out.println();
-	        for (int i = 0; i < s; i++) {
-	        	if (Math.abs(ranks[i].pageRank - ranksOld[i]) <= .001) {
+            for (int i = 0; i < s-1; i++) {
+                
+                if (ranks[i] != null && Math.abs(ranks[i].pageRank - ranksOld[i]) <= Math.pow(10, -10)) {
 //	        		System.out.print(ranks[i].pageRank + " ");
 //	        		System.out.println(ranksOld[i]);
-	        		ctr++;
-	        		if (ctr == s) {
-	        			loop = false;
-	        			break;
-	        		}
-	        	}
-	        }
-	        for (int i = 0; i < s; i++) {
-	        	ranksOld[i] = ranks[i].pageRank;
-	        }
-	        if (iters == 10) {
-	        	loop = false;
-	        }
+                    ctr++;
+                    if (ctr == s-1) {
+                        loop = false;
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < s-1; i++) {
+                if (ranks[i] != null){
+                    ranksOld[i] = ranks[i].pageRank;
+                }
+            }
+            if (iters == 100) {
+                loop = false;
+            }
         }
         System.out.println(iters);
-        for (int i = 0; i< s-1; i ++) {
-        	System.out.println(ranks[i].pageRank + " " + ranks[i].name);
+        Arrays.sort(ranks);
+        for (int i = 0; i< 100; i ++) {
+            if (ranks[i] != null) {
+                System.out.println(ranks[i].pageRank + " " + ranks[i].name);
+            }
         }
 
     }
 
-    private static class page {
+    private static class page implements Comparable<page>{
         String name;
-        int inlinks, outlinks; //number of inlinks and outlinks
+        int outlinks; //number of outlinks
         double pageRank; //Current pageRank for a given Page
-        HashMap<String, Integer> linksTo; //What pages the current page links to and how many times
         LinkedList<String> linkedFrom;
-        void print(){
-    	   int o =0;
-        for (String n: linksTo.keySet()){
-            String key = n.toString();
-            String value = linksTo.get(n).toString();  
-            System.out.print(key + " " + value + " "); 
-            System.out.println((float)linksTo.get(n)/outlinks);
-    
-            if (o%linksTo.size()==0){
-            	//System.out.println();
-            }
-        }
-       	}
         
         public page(String s) {
             name = s;
-            inlinks = 1;
-            linksTo = new HashMap<>();
             linkedFrom = new LinkedList<>();
+        }
+
+        @Override
+        public  int compareTo(page o) {
+            return Double.compare(o.pageRank, pageRank);
         }
     }
 }
